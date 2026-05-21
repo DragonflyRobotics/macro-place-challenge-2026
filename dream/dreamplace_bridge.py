@@ -43,7 +43,7 @@ def _coerce_list_of_tensors(items: Any, dtype: torch.dtype) -> List[torch.Tensor
 
 
 def load_benchmark_any(path: str) -> Any:
-    return torch.load(path, weights_only=False)
+    return torch.load(path)
 
 
 def save_benchmark_any(data: Any, path: str) -> None:
@@ -67,16 +67,28 @@ def _normalize_benchmark(data: Any) -> Dict[str, Any]:
         macro_names = [f"M{i:04d}" for i in range(num_macros)]
 
     net_nodes = _coerce_list_of_tensors(_get_field(data, "net_nodes", []), torch.long)
-    net_pin_nodes = _coerce_list_of_tensors(_get_field(data, "net_pin_nodes", []), torch.long)
-    net_weights = _coerce_tensor(_get_field(data, "net_weights", torch.ones(len(net_nodes))), torch.float32)
+    net_pin_nodes = _coerce_list_of_tensors(
+        _get_field(data, "net_pin_nodes", []), torch.long
+    )
+    net_weights = _coerce_tensor(
+        _get_field(data, "net_weights", torch.ones(len(net_nodes))), torch.float32
+    )
 
-    port_positions = _coerce_tensor(_get_field(data, "port_positions", torch.zeros(0, 2)), torch.float32)
-    macro_pin_offsets = _coerce_list_of_tensors(_get_field(data, "macro_pin_offsets", []), torch.float32)
+    port_positions = _coerce_tensor(
+        _get_field(data, "port_positions", torch.zeros(0, 2)), torch.float32
+    )
+    macro_pin_offsets = _coerce_list_of_tensors(
+        _get_field(data, "macro_pin_offsets", []), torch.float32
+    )
 
     return {
         "name": str(_get_field(data, "name", "benchmark")),
-        "canvas_width": float(_get_field(data, "canvas_width", float(macro_positions[:, 0].max().item()))),
-        "canvas_height": float(_get_field(data, "canvas_height", float(macro_positions[:, 1].max().item()))),
+        "canvas_width": float(
+            _get_field(data, "canvas_width", float(macro_positions[:, 0].max().item()))
+        ),
+        "canvas_height": float(
+            _get_field(data, "canvas_height", float(macro_positions[:, 1].max().item()))
+        ),
         "num_macros": num_macros,
         "num_hard_macros": num_hard,
         "num_soft_macros": num_soft,
@@ -220,7 +232,11 @@ def _build_net_pins(
 
     nets: List[List[Tuple[str, int, int]]] = []
 
-    use_pin_nodes = include_pin_offsets and len(net_pin_nodes) == len(net_nodes) and len(net_pin_nodes) > 0
+    use_pin_nodes = (
+        include_pin_offsets
+        and len(net_pin_nodes) == len(net_nodes)
+        and len(net_pin_nodes) > 0
+    )
 
     for i, nodes in enumerate(net_nodes):
         pins: List[Tuple[str, int, int]] = []
@@ -285,8 +301,14 @@ def export_bookshelf(
     macro_positions = bench["macro_positions"]
     macro_fixed = bench["macro_fixed"]
 
-    widths = [_scale_int(float(macro_sizes[i, 0].item()), scale, min_value=1) for i in range(bench["num_macros"])]
-    heights = [_scale_int(float(macro_sizes[i, 1].item()), scale, min_value=1) for i in range(bench["num_macros"])]
+    widths = [
+        _scale_int(float(macro_sizes[i, 0].item()), scale, min_value=1)
+        for i in range(bench["num_macros"])
+    ]
+    heights = [
+        _scale_int(float(macro_sizes[i, 1].item()), scale, min_value=1)
+        for i in range(bench["num_macros"])
+    ]
 
     port_width = _scale_int(port_size_um, scale, min_value=1)
     port_height = _scale_int(port_size_um, scale, min_value=1)
@@ -402,6 +424,7 @@ def import_bookshelf_solution(
     name_suffix: str = "_dreamplace",
 ) -> None:
     original = load_benchmark_any(original_benchmark_path)
+    print(f"Loaded original benchmark from {original_benchmark_path}")
     bench = _normalize_benchmark(original)
 
     with open(mapping_path, "r", encoding="utf-8") as f:
@@ -439,37 +462,31 @@ def import_bookshelf_solution(
             port_positions[idx, 0] = x_ll / scale
             port_positions[idx, 1] = y_ll / scale
 
-    if Benchmark is not None and isinstance(original, Benchmark):
-        updated = Benchmark(
-            name=str(bench["name"]) + name_suffix,
-            canvas_width=bench["canvas_width"],
-            canvas_height=bench["canvas_height"],
-            num_macros=bench["num_macros"],
-            macro_positions=macro_positions,
-            macro_sizes=bench["macro_sizes"],
-            macro_fixed=macro_fixed,
-            macro_names=bench["macro_names"],
-            num_nets=bench["num_nets"],
-            net_nodes=bench["net_nodes"],
-            net_weights=bench["net_weights"],
-            grid_rows=bench["grid_rows"],
-            grid_cols=bench["grid_cols"],
-            port_positions=port_positions,
-            macro_pin_offsets=bench["macro_pin_offsets"],
-            net_pin_nodes=bench["net_pin_nodes"],
-            num_hard_macros=bench["num_hard_macros"],
-            num_soft_macros=bench["num_soft_macros"],
-            hard_macro_indices=_get_field(original, "hard_macro_indices", []),
-            soft_macro_indices=_get_field(original, "soft_macro_indices", []),
-        )
-    else:
-        updated = dict(original)
-        updated["name"] = str(bench["name"]) + name_suffix
-        updated["macro_positions"] = macro_positions
-        updated["macro_fixed"] = macro_fixed
-        updated["port_positions"] = port_positions
+    updated = Benchmark(
+        name=str(bench["name"]) + name_suffix,
+        canvas_width=bench["canvas_width"],
+        canvas_height=bench["canvas_height"],
+        num_macros=bench["num_macros"],
+        macro_positions=macro_positions,
+        macro_sizes=bench["macro_sizes"],
+        macro_fixed=macro_fixed,
+        macro_names=bench["macro_names"],
+        num_nets=bench["num_nets"],
+        net_nodes=bench["net_nodes"],
+        net_weights=bench["net_weights"],
+        grid_rows=bench["grid_rows"],
+        grid_cols=bench["grid_cols"],
+        port_positions=port_positions,
+        macro_pin_offsets=bench["macro_pin_offsets"],
+        net_pin_nodes=bench["net_pin_nodes"],
+        num_hard_macros=bench["num_hard_macros"],
+        num_soft_macros=bench["num_soft_macros"],
+        hard_macro_indices=_get_field(original, "hard_macro_indices", []),
+        soft_macro_indices=_get_field(original, "soft_macro_indices", []),
+    )
 
     save_benchmark_any(updated, output_path)
+    return macro_positions
 
 
 def write_dreamplace_config(
@@ -503,37 +520,76 @@ def write_dreamplace_config(
     if result_dir is None:
         result_dir = str(Path(config_path).parent / "results")
 
+    # config = {
+    #     "aux_input": os.path.abspath(aux_path),
+    #     "gpu": gpu,
+    #     "num_bins_x": int(num_bins_x),
+    #     "num_bins_y": int(num_bins_y),
+    #     "global_place_stages": [
+    #         {
+    #             "num_bins_x": int(num_bins_x),
+    #             "num_bins_y": int(num_bins_y),
+    #             "iteration": int(iterations),
+    #             "learning_rate": float(learning_rate),
+    #             "wirelength": "weighted_average",
+    #             "optimizer": "nesterov",
+    #             "Llambda_density_weight_iteration": 1,
+    #             "Lsub_iteration": 1,
+    #         }
+    #     ],
+    #     "target_density": float(target_density),
+    #     "density_weight": 8e-5,
+    #     "gamma": 4.0,
+    #     "random_seed": int(seed),
+    #     "scale_factor": 1.0,
+    #     "ignore_net_degree": 100,
+    #     "enable_fillers": 1,
+    #     "gp_noise_ratio": 0.025,
+    #     "global_place_flag": 1,
+    #     "legalize_flag": 1,
+    #     "detailed_place_flag": 0,
+    #     "plot_flag": 0,
+    #     "result_dir": result_dir,
+    #     "macro_place_flag": int(macro_place_flag),
+    # }
     config = {
         "aux_input": os.path.abspath(aux_path),
-        "gpu": gpu,
-        "num_bins_x": int(num_bins_x),
-        "num_bins_y": int(num_bins_y),
+        "result_dir": result_dir,
+        "gpu": 1,
+        "num_bins_x": 512,
+        "num_bins_y": 512,
         "global_place_stages": [
             {
-                "num_bins_x": int(num_bins_x),
-                "num_bins_y": int(num_bins_y),
-                "iteration": int(iterations),
-                "learning_rate": float(learning_rate),
+                "num_bins_x": 512,
+                "num_bins_y": 512,
+                "iteration": 1000,
+                "learning_rate": 0.01,
                 "wirelength": "weighted_average",
                 "optimizer": "nesterov",
                 "Llambda_density_weight_iteration": 1,
                 "Lsub_iteration": 1,
             }
         ],
-        "target_density": float(target_density),
+        "target_density": 1.0,
         "density_weight": 8e-5,
         "gamma": 4.0,
-        "random_seed": int(seed),
+        "random_seed": 1000,
         "scale_factor": 1.0,
         "ignore_net_degree": 100,
-        "enable_fillers": 0,
+        "enable_fillers": 1,
         "gp_noise_ratio": 0.025,
         "global_place_flag": 1,
         "legalize_flag": 1,
-        "detailed_place_flag": 0,
+        "detailed_place_flag": 1,
+        "detailed_place_engine": "",
+        "detailed_place_command": "",
+        "stop_overflow": 0.07,
+        "dtype": "float32",
         "plot_flag": 0,
-        "result_dir": result_dir,
-        "macro_place_flag": int(macro_place_flag),
+        "random_center_init_flag": 1,
+        "sort_nets_by_degree": 0,
+        "num_threads": 8,
+        "deterministic_flag": 0,
     }
 
     with open(config_path, "w", encoding="utf-8") as f:
@@ -657,7 +713,9 @@ def export_plc(
         # Metadata header expected by PlacementCost parser.
         f.write("node {\n")
         f.write('  name: "__metadata__"\n')
-        f.write('  attr {\n    key: "soft_macro_area_bloating_ratio"\n    value {\n      f: 1.0\n    }\n  }\n')
+        f.write(
+            '  attr {\n    key: "soft_macro_area_bloating_ratio"\n    value {\n      f: 1.0\n    }\n  }\n'
+        )
         f.write("}\n")
 
         plc_indices: Dict[str, int] = {}
@@ -707,7 +765,11 @@ def export_plc(
         # Pin nodes from hyperedges.
         pin_nodes: List[Dict[str, Any]] = []
         pin_endpoints_per_net: List[List[str]] = []
-        use_pin = use_pin_nets and len(net_pin_nodes) == len(net_nodes) and len(net_pin_nodes) > 0
+        use_pin = (
+            use_pin_nets
+            and len(net_pin_nodes) == len(net_nodes)
+            and len(net_pin_nodes) > 0
+        )
 
         for ni in range(len(net_nodes)):
             endpoints: List[Tuple[int, int]] = []
@@ -744,7 +806,9 @@ def export_plc(
                             macro_name=macro_name,
                             x_offset=x_off,
                             y_offset=y_off,
-                            weight=float(net_weights[ni].item()) if ni < len(net_weights) else 1.0,
+                            weight=float(net_weights[ni].item())
+                            if ni < len(net_weights)
+                            else 1.0,
                         )
                     )
                 else:
@@ -755,7 +819,9 @@ def export_plc(
                             x=mx,
                             y=my,
                             macro_name=macro_name,
-                            weight=float(net_weights[ni].item()) if ni < len(net_weights) else 1.0,
+                            weight=float(net_weights[ni].item())
+                            if ni < len(net_weights)
+                            else 1.0,
                         )
                     )
                 names.append(pin_name)
@@ -804,7 +870,10 @@ def export_plc(
         f.write("# Width : %.6f  Height : %.6f\n" % (canvas_w, canvas_h))
         f.write("# Project : circuit_training\n")
         f.write(f"# Block : {design_name}\n")
-        f.write("# Routes per micron, hor : %.3f  ver : %.3f\n" % (bench["hroutes_per_micron"], bench["vroutes_per_micron"]))
+        f.write(
+            "# Routes per micron, hor : %.3f  ver : %.3f\n"
+            % (bench["hroutes_per_micron"], bench["vroutes_per_micron"])
+        )
         f.write("# Routes used by macros, hor : 0.0  ver : 0.0\n")
         f.write("# Smoothing factor : 2\n")
         f.write("# Overlap threshold : 0.004\n")
@@ -843,41 +912,78 @@ def export_plc(
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Benchmark <-> DREAMPlace Bookshelf bridge")
+    parser = argparse.ArgumentParser(
+        description="Benchmark <-> DREAMPlace Bookshelf bridge"
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     to_bs = subparsers.add_parser("to-bookshelf", help="Export Benchmark to Bookshelf")
     to_bs.add_argument("--input", required=True, help="Benchmark .pt file")
     to_bs.add_argument("--out-dir", required=True, help="Output directory")
-    to_bs.add_argument("--design-name", default=None, help="Design name for Bookshelf files")
-    to_bs.add_argument("--scale", type=float, default=1000.0, help="Micron->integer scale")
-    to_bs.add_argument("--row-height-um", type=float, default=1.0, help="Row height in microns")
-    to_bs.add_argument("--site-width-um", type=float, default=1.0, help="Site width in microns")
+    to_bs.add_argument(
+        "--design-name", default=None, help="Design name for Bookshelf files"
+    )
+    to_bs.add_argument(
+        "--scale", type=float, default=1000.0, help="Micron->integer scale"
+    )
+    to_bs.add_argument(
+        "--row-height-um", type=float, default=1.0, help="Row height in microns"
+    )
+    to_bs.add_argument(
+        "--site-width-um", type=float, default=1.0, help="Site width in microns"
+    )
     to_bs.add_argument("--no-ports", action="store_true", help="Exclude IO ports")
-    to_bs.add_argument("--no-pin-offsets", action="store_true", help="Ignore pin offsets")
-    to_bs.add_argument("--port-size-um", type=float, default=1.0, help="Port size in microns")
-    to_bs.add_argument("--write-config", action="store_true", help="Emit DreamPlace config JSON")
+    to_bs.add_argument(
+        "--no-pin-offsets", action="store_true", help="Ignore pin offsets"
+    )
+    to_bs.add_argument(
+        "--port-size-um", type=float, default=1.0, help="Port size in microns"
+    )
+    to_bs.add_argument(
+        "--write-config", action="store_true", help="Emit DreamPlace config JSON"
+    )
     to_bs.add_argument("--bins-x", type=int, default=None, help="Override num_bins_x")
     to_bs.add_argument("--bins-y", type=int, default=None, help="Override num_bins_y")
-    to_bs.add_argument("--iterations", type=int, default=200, help="Global placement iterations")
-    to_bs.add_argument("--learning-rate", type=float, default=0.01, help="Global placement learning rate")
-    to_bs.add_argument("--target-density", type=float, default=0.8, help="Target density")
+    to_bs.add_argument(
+        "--iterations", type=int, default=200, help="Global placement iterations"
+    )
+    to_bs.add_argument(
+        "--learning-rate",
+        type=float,
+        default=0.01,
+        help="Global placement learning rate",
+    )
+    to_bs.add_argument(
+        "--target-density", type=float, default=0.8, help="Target density"
+    )
     to_bs.add_argument("--gpu", type=int, default=0, help="Use GPU (1) or CPU (0)")
     to_bs.add_argument("--seed", type=int, default=123, help="Random seed")
-    to_bs.add_argument("--macro-place-flag", type=int, default=0, help="Enable macro placement mode")
+    to_bs.add_argument(
+        "--macro-place-flag", type=int, default=0, help="Enable macro placement mode"
+    )
 
-    from_bs = subparsers.add_parser("from-bookshelf", help="Import DREAMPlace .pl into Benchmark")
+    from_bs = subparsers.add_parser(
+        "from-bookshelf", help="Import DREAMPlace .pl into Benchmark"
+    )
     from_bs.add_argument("--input", required=True, help="Original Benchmark .pt")
     from_bs.add_argument("--pl", required=True, help="DREAMPlace .pl file")
     from_bs.add_argument("--map", required=True, help="Mapping JSON from to-bookshelf")
     from_bs.add_argument("--output", required=True, help="Output Benchmark .pt")
-    from_bs.add_argument("--update-fixed", action="store_true", help="Update fixed flags from .pl")
+    from_bs.add_argument(
+        "--update-fixed", action="store_true", help="Update fixed flags from .pl"
+    )
 
-    to_plc = subparsers.add_parser("to-plc", help="Export Benchmark to PlacementCost files")
+    to_plc = subparsers.add_parser(
+        "to-plc", help="Export Benchmark to PlacementCost files"
+    )
     to_plc.add_argument("--input", required=True, help="Benchmark .pt file")
     to_plc.add_argument("--out-dir", required=True, help="Output directory")
-    to_plc.add_argument("--design-name", default=None, help="Optional block/design name")
-    to_plc.add_argument("--no-pin-nets", action="store_true", help="Use coarse net_nodes only")
+    to_plc.add_argument(
+        "--design-name", default=None, help="Optional block/design name"
+    )
+    to_plc.add_argument(
+        "--no-pin-nets", action="store_true", help="Use coarse net_nodes only"
+    )
 
     return parser.parse_args()
 
@@ -900,7 +1006,9 @@ def main() -> None:
 
         if args.write_config:
             bench = _normalize_benchmark(load_benchmark_any(args.input))
-            config_path = str(Path(args.out_dir) / f"{result['design_name']}.config.json")
+            config_path = str(
+                Path(args.out_dir) / f"{result['design_name']}.config.json"
+            )
             write_dreamplace_config(
                 config_path=config_path,
                 aux_path=result["aux"],
@@ -939,5 +1047,5 @@ def main() -> None:
         print(json.dumps(result, indent=2))
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()

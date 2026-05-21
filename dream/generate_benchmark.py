@@ -100,8 +100,9 @@ class Benchmark:
             f"num_macros {self.num_macros} != "
             f"num_hard {self.num_hard_macros} + num_soft {self.num_soft_macros}"
         )
-        assert self.macro_positions.shape == (self.num_macros, 2), (
-            f"macro_positions shape {self.macro_positions.shape} != ({self.num_macros}, 2)"
+        assert self.macro_positions.shape == (
+            self.num_macros,
+            2,
         )
         assert self.macro_sizes.shape == (self.num_macros, 2), (
             f"macro_sizes shape {self.macro_sizes.shape} != ({self.num_macros}, 2)"
@@ -116,10 +117,7 @@ class Benchmark:
             )
 
         if len(self.net_pin_nodes) > 0:
-            assert len(self.net_pin_nodes) == self.num_nets, (
-                f"len(net_pin_nodes) {len(self.net_pin_nodes)} != num_nets {self.num_nets}"
-            )
-
+            assert len(self.net_pin_nodes) == self.num_nets
         assert self.net_weights.shape == (self.num_nets,), (
             f"net_weights shape {self.net_weights.shape} != ({self.num_nets},)"
         )
@@ -237,7 +235,7 @@ def _sample_aspect_ratios(num_macros: int, aspect_sigma: float) -> torch.Tensor:
     return torch.exp(torch.randn(num_macros) * aspect_sigma)
 
 
-def _build_canvas(total_area: float, utilization: float, aspect: float) -> tuple[float, float]:
+def _build_canvas(total_area: float, utilization: float, aspect: float):
     canvas_area = total_area / max(utilization, 1e-6)
     width = math.sqrt(canvas_area * aspect)
     height = canvas_area / width
@@ -303,17 +301,27 @@ def _place_fixed_macros(
         side = random.choice(["left", "right", "bottom", "top"])
 
         if side in ("left", "right"):
-            x = w / 2.0 + edge_band if side == "left" else canvas_w - w / 2.0 - edge_band
+            x = (
+                w / 2.0 + edge_band
+                if side == "left"
+                else canvas_w - w / 2.0 - edge_band
+            )
             y = random.uniform(h / 2.0, canvas_h - h / 2.0)
         else:
-            y = h / 2.0 + edge_band if side == "bottom" else canvas_h - h / 2.0 - edge_band
+            y = (
+                h / 2.0 + edge_band
+                if side == "bottom"
+                else canvas_h - h / 2.0 - edge_band
+            )
             x = random.uniform(w / 2.0, canvas_w - w / 2.0)
 
         positions[idx, 0] = x
         positions[idx, 1] = y
 
 
-def _sample_port_positions(num_ports: int, canvas_w: float, canvas_h: float) -> torch.Tensor:
+def _sample_port_positions(
+    num_ports: int, canvas_w: float, canvas_h: float
+) -> torch.Tensor:
     if num_ports <= 0:
         return torch.zeros(0, 2)
 
@@ -515,7 +523,9 @@ def generate_benchmark(
     if num_nets < 1:
         raise ValueError("num_nets must be at least 1")
 
-    areas = _sample_areas(num_hard_macros, num_soft_macros, hard_large_frac, min_area=1.0)
+    areas = _sample_areas(
+        num_hard_macros, num_soft_macros, hard_large_frac, min_area=1.0
+    )
     aspects = _sample_aspect_ratios(num_macros, aspect_sigma)
     widths = torch.sqrt(areas * aspects)
     heights = areas / widths
@@ -525,7 +535,9 @@ def generate_benchmark(
     if canvas_aspect is None:
         canvas_aspect = float(torch.empty(1).uniform_(0.8, 1.35).item())
 
-    canvas_w, canvas_h = _build_canvas(float(areas.sum().item()), utilization, canvas_aspect)
+    canvas_w, canvas_h = _build_canvas(
+        float(areas.sum().item()), utilization, canvas_aspect
+    )
 
     num_modules = max(2, min(8, int(math.sqrt(num_macros)) + 1))
     module_ids = _assign_modules(num_macros, num_modules)
@@ -581,12 +593,16 @@ def generate_benchmark(
         local_net_prob,
     )
 
-    net_weights = torch.exp(torch.randn(num_nets) * net_weight_std).clamp(min=0.1, max=10.0)
+    net_weights = torch.exp(torch.randn(num_nets) * net_weight_std).clamp(
+        min=0.1, max=10.0
+    )
     net_weights = net_weights.to(dtype=torch.float32)
 
     port_positions = _sample_port_positions(num_ports, canvas_w, canvas_h)
 
-    macro_pin_offsets = _sample_pin_offsets(widths, heights, num_hard_macros, min_pins, max_pins)
+    macro_pin_offsets = _sample_pin_offsets(
+        widths, heights, num_hard_macros, min_pins, max_pins
+    )
 
     if emit_pin_nets:
         net_pin_nodes = _build_pin_nets(
@@ -630,10 +646,12 @@ def _resolve_counts(
     num_macros: Optional[int],
     num_hard: Optional[int],
     num_soft: Optional[int],
-) -> tuple[int, int, int]:
+):
     if num_macros is None:
         if num_hard is None or num_soft is None:
-            raise ValueError("Provide num_macros or both num_hard_macros and num_soft_macros")
+            raise ValueError(
+                "Provide num_macros or both num_hard_macros and num_soft_macros"
+            )
         return num_hard + num_soft, num_hard, num_soft
 
     if num_hard is None and num_soft is None:
@@ -654,40 +672,93 @@ def _resolve_counts(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate a synthetic macro placement benchmark")
+    parser = argparse.ArgumentParser(
+        description="Generate a synthetic macro placement benchmark"
+    )
 
     parser.add_argument("--out", type=str, required=True, help="Output .pt path")
-    parser.add_argument("--name", type=str, default="synthetic_ibm_like", help="Benchmark name")
+    parser.add_argument(
+        "--name", type=str, default="synthetic_ibm_like", help="Benchmark name"
+    )
 
     parser.add_argument("--num-macros", type=int, default=200, help="Total macros")
-    parser.add_argument("--num-hard-macros", type=int, default=None, help="Hard macro count")
-    parser.add_argument("--num-soft-macros", type=int, default=None, help="Soft macro count")
-    parser.add_argument("--num-fixed-macros", type=int, default=10, help="Fixed hard macros")
+    parser.add_argument(
+        "--num-hard-macros", type=int, default=None, help="Hard macro count"
+    )
+    parser.add_argument(
+        "--num-soft-macros", type=int, default=None, help="Soft macro count"
+    )
+    parser.add_argument(
+        "--num-fixed-macros", type=int, default=10, help="Fixed hard macros"
+    )
 
     parser.add_argument("--num-nets", type=int, default=None, help="Total nets")
-    parser.add_argument("--net-ratio", type=float, default=1.4, help="Nets per macro if num-nets is unset")
+    parser.add_argument(
+        "--net-ratio",
+        type=float,
+        default=1.4,
+        help="Nets per macro if num-nets is unset",
+    )
 
     parser.add_argument("--num-ports", type=int, default=0, help="Number of IO ports")
-    parser.add_argument("--port-net-frac", type=float, default=0.0, help="Fraction of nets with a port pin")
+    parser.add_argument(
+        "--port-net-frac",
+        type=float,
+        default=0.0,
+        help="Fraction of nets with a port pin",
+    )
 
     parser.add_argument("--grid-rows", type=int, default=64, help="Grid rows")
     parser.add_argument("--grid-cols", type=int, default=64, help="Grid cols")
 
-    parser.add_argument("--utilization", type=float, default=None, help="Utilization target (0-1)")
-    parser.add_argument("--canvas-aspect", type=float, default=None, help="Canvas aspect ratio (w/h)")
+    parser.add_argument(
+        "--utilization", type=float, default=None, help="Utilization target (0-1)"
+    )
+    parser.add_argument(
+        "--canvas-aspect", type=float, default=None, help="Canvas aspect ratio (w/h)"
+    )
 
-    parser.add_argument("--hard-large-frac", type=float, default=0.25, help="Fraction of large hard macros")
-    parser.add_argument("--aspect-sigma", type=float, default=0.55, help="Log-normal aspect ratio sigma")
-    parser.add_argument("--cluster-spread", type=float, default=0.12, help="Cluster spread as canvas fraction")
+    parser.add_argument(
+        "--hard-large-frac",
+        type=float,
+        default=0.25,
+        help="Fraction of large hard macros",
+    )
+    parser.add_argument(
+        "--aspect-sigma", type=float, default=0.55, help="Log-normal aspect ratio sigma"
+    )
+    parser.add_argument(
+        "--cluster-spread",
+        type=float,
+        default=0.12,
+        help="Cluster spread as canvas fraction",
+    )
 
-    parser.add_argument("--local-net-prob", type=float, default=0.75, help="Probability of local nets")
+    parser.add_argument(
+        "--local-net-prob", type=float, default=0.75, help="Probability of local nets"
+    )
     parser.add_argument("--max-degree", type=int, default=20, help="Max net degree")
-    parser.add_argument("--degree-alpha", type=float, default=1.15, help="Zipf alpha for net degrees")
-    parser.add_argument("--net-weight-std", type=float, default=0.35, help="Stddev for log-normal net weights")
+    parser.add_argument(
+        "--degree-alpha", type=float, default=1.15, help="Zipf alpha for net degrees"
+    )
+    parser.add_argument(
+        "--net-weight-std",
+        type=float,
+        default=0.35,
+        help="Stddev for log-normal net weights",
+    )
 
-    parser.add_argument("--min-pins", type=int, default=1, help="Min pins per hard macro")
-    parser.add_argument("--max-pins", type=int, default=4, help="Max pins per hard macro")
-    parser.add_argument("--emit-pin-nets", action="store_true", help="Emit net_pin_nodes with pin indices")
+    parser.add_argument(
+        "--min-pins", type=int, default=1, help="Min pins per hard macro"
+    )
+    parser.add_argument(
+        "--max-pins", type=int, default=4, help="Max pins per hard macro"
+    )
+    parser.add_argument(
+        "--emit-pin-nets",
+        action="store_true",
+        help="Emit net_pin_nodes with pin indices",
+    )
 
     parser.add_argument("--seed", type=int, default=1, help="Random seed")
     parser.add_argument(

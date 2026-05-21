@@ -3,6 +3,9 @@ Side-by-side visualization for two Benchmark-format placements.
 """
 
 from __future__ import annotations
+from .visualize_benchmark import render_benchmark
+import torch
+import matplotlib.pyplot as plt
 
 import argparse
 import sys
@@ -12,14 +15,10 @@ from typing import Any, Optional
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import torch
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
-
-from visualize_benchmark import render_benchmark
 
 
 def _load_any(path: str) -> Any:
@@ -85,13 +84,17 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--right", required=True, help="Placed Benchmark .pt")
     parser.add_argument("--output", required=True, help="Output image path")
     parser.add_argument("--max-nets", type=int, default=300, help="Max nets to draw")
-    parser.add_argument("--net-sample", choices=["largest", "random"], default="largest")
+    parser.add_argument(
+        "--net-sample", choices=["largest", "random"], default="largest"
+    )
     parser.add_argument("--net-style", choices=["star", "clique"], default="star")
     parser.add_argument("--show-grid", action="store_true", help="Draw placement grid")
     parser.add_argument("--show-pins", action="store_true", help="Draw macro pins")
     parser.add_argument("--hide-ports", action="store_true", help="Hide IO ports")
     parser.add_argument("--show-labels", action="store_true", help="Draw macro names")
-    parser.add_argument("--seed", type=int, default=1, help="Random seed for net sampling")
+    parser.add_argument(
+        "--seed", type=int, default=1, help="Random seed for net sampling"
+    )
     parser.add_argument("--dpi", type=int, default=150, help="Output DPI")
     return parser.parse_args()
 
@@ -114,5 +117,5 @@ def main() -> None:
     )
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
